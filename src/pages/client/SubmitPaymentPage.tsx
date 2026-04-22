@@ -23,45 +23,51 @@ export default function SubmitPaymentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!adId) return;
-    supabase.from('ads').select('*, packages(*)').eq('id', adId).maybeSingle()
-      .then(({ data }) => setAd(data));
-    supabase.from('packages').select('*').eq('is_active', true).order('price')
-      .then(({ data }) => setPackages(data ?? []));
+    Promise.all([
+      supabase.from('ads').select('*, packages(*)').eq('id', adId).maybeSingle(),
+      supabase.from('packages').select('*').eq('is_active', true).order('price'),
+    ]).then(([adRes, pkgRes]) => {
+      setAd(adRes.data);
+      setPackages(pkgRes.data ?? []);
+      setLoading(false);
+    });
   }, [adId]);
 
   const selectedPackage = packages.find(p => p.id === selectedPkg);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPkg || !txRef.trim() || !senderName.trim()) {
-      setError('Please fill all required fields');
-      return;
-    }
+    if (!selectedPkg) { setError('Please select a package'); return; }
+    if (!txRef.trim()) { setError('Transaction reference is required'); return; }
+    if (!senderName.trim()) { setError('Sender name is required'); return; }
     setSubmitting(true);
     setError('');
 
     const existing = await supabase.from('payments')
-      .select('id').eq('transaction_ref', txRef).maybeSingle();
+      .select('id').eq('transaction_ref', txRef.trim()).maybeSingle();
     if (existing.data) {
-      setError('Duplicate transaction reference detected');
+      setError('Duplicate transaction reference. Please check your TID.');
       setSubmitting(false);
       return;
     }
 
-    await supabase.from('payments').insert({
+    const { error: payErr } = await supabase.from('payments').insert({
       ad_id: adId,
       user_id: user?.id,
       amount: parseFloat(amount) || selectedPackage?.price || 0,
       method,
-      transaction_ref: txRef,
-      sender_name: senderName,
-      screenshot_url: screenshotUrl,
-      notes,
+      transaction_ref: txRef.trim(),
+      sender_name: senderName.trim(),
+      screenshot_url: screenshotUrl.trim(),
+      notes: notes.trim(),
       status: 'pending',
     });
+
+    if (payErr) { setError(payErr.message); setSubmitting(false); return; }
 
     await supabase.from('ads').update({
       package_id: selectedPkg,
@@ -69,22 +75,36 @@ export default function SubmitPaymentPage() {
     }).eq('id', adId);
 
     await supabase.from('ad_status_history').insert({
-      ad_id: adId, previous_status: 'payment_pending',
-      new_status: 'payment_submitted', changed_by: user?.id,
-      note: `Payment submitted: ${txRef}`,
+      ad_id: adId,
+      previous_status: 'payment_pending',
+      new_status: 'payment_submitted',
+      changed_by: user?.id,
+      note: `Payment submitted via ${method} — TXN: ${txRef}`,
     });
 
     await supabase.from('notifications').insert({
-      user_id: user?.id, title: 'Payment Submitted!',
-      message: `Your payment for "${ad?.title}" is under verification.`, type: 'info',
+      user_id: user?.id,
+      title: 'Payment Submitted!',
+      message: `Your payment for "${ad?.title}" is under verification. We will notify you within 24-48 hours.`,
+      type: 'info',
     });
 
     setSuccess(true);
-    setTimeout(() => navigate('/dashboard/my-ads'), 2000);
     setSubmitting(false);
+    setTimeout(() => navigate('/dashboard/my-ads'), 2500);
   };
 
-  if (!ad) return <DashboardLayout title="Submit Payment"><div className="flex justify-center py-8"><LoadingSpinner /></div></DashboardLayout>;
+  if (loading) return (
+    <DashboardLayout title="Submit Payment">
+      <div className="flex justify-center py-8"><LoadingSpinner /></div>
+    </DashboardLayout>
+  );
+
+  if (!ad) return (
+    <DashboardLayout title="Submit Payment">
+      <div className="text-center py-12 text-gray-500">Ad not found.</div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout title="Submit Payment">
@@ -93,7 +113,8 @@ export default function SubmitPaymentPage() {
           <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
             <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-3" />
             <h2 className="text-xl font-bold text-gray-900">Payment Submitted!</h2>
-            <p className="text-gray-500 mt-2">Our team will verify your payment within 24–48 hours.</p>
+            <p className="text-gray-500 mt-2 text-sm">Our team will verify your payment within 24-48 hours.</p>
+            <p className="text-gray-400 text-xs mt-1">Redirecting to My Ads...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -106,8 +127,9 @@ export default function SubmitPaymentPage() {
 
             {/* Ad info */}
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              <p className="text-xs text-blue-600 font-medium uppercase tracking-wide mb-1">Ad for Payment</p>
               <p className="text-sm font-semibold text-blue-900">{ad.title}</p>
-              <p className="text-xs text-blue-700 mt-0.5">Select a package to proceed</p>
+              <p className="text-xs text-blue-700 mt-0.5">Select a package and submit payment proof below.</p>
             </div>
 
             {/* Package selection */}
@@ -116,30 +138,36 @@ export default function SubmitPaymentPage() {
                 <Package className="w-4 h-4 text-blue-600" />
                 Select Package *
               </h3>
-              <div className="space-y-2">
-                {packages.map(pkg => (
-                  <label
-                    key={pkg.id}
-                    className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition ${
-                      selectedPkg === pkg.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="package"
-                      value={pkg.id}
-                      checked={selectedPkg === pkg.id}
-                      onChange={() => { setSelectedPkg(pkg.id); setAmount(pkg.price.toString()); }}
-                      className="text-blue-600"
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900 text-sm">{pkg.name}</p>
-                      <p className="text-xs text-gray-500">{pkg.duration_days} days • {pkg.description.slice(0, 60)}...</p>
-                    </div>
-                    <span className="font-bold text-blue-700 text-sm">PKR {pkg.price.toLocaleString()}</span>
-                  </label>
-                ))}
-              </div>
+              {packages.length === 0 ? (
+                <p className="text-sm text-gray-400">No packages available</p>
+              ) : (
+                <div className="space-y-2">
+                  {packages.map(pkg => (
+                    <label
+                      key={pkg.id}
+                      className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition ${
+                        selectedPkg === pkg.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="package"
+                        value={pkg.id}
+                        checked={selectedPkg === pkg.id}
+                        onChange={() => { setSelectedPkg(pkg.id); setAmount(pkg.price.toString()); }}
+                        className="text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900 text-sm">{pkg.name}</p>
+                        <p className="text-xs text-gray-500">{pkg.duration_days} days • {pkg.description.slice(0, 50)}</p>
+                      </div>
+                      <span className="font-bold text-blue-700 text-sm whitespace-nowrap">
+                        PKR {pkg.price.toLocaleString()}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Payment details */}
@@ -167,7 +195,7 @@ export default function SubmitPaymentPage() {
                   value={txRef}
                   onChange={e => setTxRef(e.target.value)}
                   required
-                  placeholder="e.g., TXN-20260419-001"
+                  placeholder="e.g., TXN-20260422-001"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
@@ -187,7 +215,7 @@ export default function SubmitPaymentPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Screenshot URL (optional)</label>
                 <input
-                  type="url"
+                  type="text"
                   value={screenshotUrl}
                   onChange={e => setScreenshotUrl(e.target.value)}
                   placeholder="https://imgur.com/screenshot.jpg"
@@ -196,7 +224,7 @@ export default function SubmitPaymentPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
                 <textarea
                   value={notes}
                   onChange={e => setNotes(e.target.value)}

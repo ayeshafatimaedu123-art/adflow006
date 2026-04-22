@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from '../../lib/router';
-import { FileText, Clock, CheckCircle, XCircle, PlusCircle, AlertCircle, Eye } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, PlusCircle, AlertCircle, Eye, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ad, Notification } from '../../types';
@@ -37,6 +37,7 @@ export default function ClientDashboard() {
   };
 
   const recentAds = ads.slice(0, 5);
+  const paymentPendingAds = ads.filter(a => a.status === 'payment_pending');
 
   return (
     <DashboardLayout title="My Dashboard">
@@ -53,6 +54,35 @@ export default function ClientDashboard() {
             Post New Ad
           </Link>
         </div>
+
+        {/* Payment Pending Alert */}
+        {paymentPendingAds.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <CreditCard className="w-5 h-5 text-orange-600" />
+              <h3 className="font-semibold text-orange-800">
+                Payment Required ({paymentPendingAds.length} ad{paymentPendingAds.length > 1 ? 's' : ''})
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {paymentPendingAds.map(ad => (
+                <div key={ad.id} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-orange-100">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">{ad.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Ad reviewed and approved — payment needed to publish</p>
+                  </div>
+                  <Link
+                    to={`/dashboard/payment/${ad.id}`}
+                    className="ml-4 flex-shrink-0 flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    Pay Now
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         {loading ? (
@@ -100,7 +130,7 @@ export default function ClientDashboard() {
                         {ad.status === 'payment_pending' && (
                           <Link
                             to={`/dashboard/payment/${ad.id}`}
-                            className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full hover:bg-orange-600"
+                            className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full hover:bg-orange-600 font-medium"
                           >
                             Pay Now
                           </Link>
@@ -130,9 +160,7 @@ export default function ClientDashboard() {
                 )}
               </div>
               {notifications.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  No notifications
-                </div>
+                <div className="text-center py-8 text-gray-400 text-sm">No notifications</div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {notifications.map(n => (
