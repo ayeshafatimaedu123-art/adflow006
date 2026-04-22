@@ -36,7 +36,7 @@ export default function CreateAdPage() {
   useEffect(() => {
     Promise.all([
       supabase.from('categories').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('cities').select('*').eq('is_active', true).order('sort_order'),
+      supabase.from('cities').select('*').eq('is_active', true).order('name'),
       supabase.from('packages').select('*').eq('is_active', true).order('price'),
     ]).then(([cats, cits, pkgs]) => {
       setCategories(cats.data ?? []);
@@ -125,20 +125,68 @@ export default function CreateAdPage() {
     e.preventDefault();
     if (!title.trim()) { setError('Title is required'); return; }
     setSubmitting(true);
-    await saveAsDraft();
+    setError('');
 
-    if (adId) {
-      await supabase.from('ads').update({ status: 'submitted' }).eq('id', adId);
+    let currentAdId = adId;
+
+    if (!currentAdId) {
+      const payload = {
+        user_id: user!.id,
+        title: title.trim(),
+        slug: generateSlug(title),
+        description: description.trim(),
+        category_id: categoryId || null,
+        city_id: cityId || null,
+        price: price ? parseFloat(price) : null,
+        price_label: priceLabel.trim(),
+        contact_phone: contactPhone.trim(),
+        contact_email: contactEmail.trim(),
+        status: 'draft' as const,
+      };
+      const { data, error: insertError } = await supabase.from('ads').insert(payload).select().single();
+      if (insertError) { setError(insertError.message); setSubmitting(false); return; }
+      currentAdId = data.id;
+      setAdId(data.id);
+
+      // Save media
+      const validUrls = mediaUrls.filter(u => u.trim());
+      if (validUrls.length > 0) {
+        const mediaRows = validUrls.map((url, i) => {
+          const normalized = normalizeMediaUrl(url);
+          return {
+            ad_id: currentAdId,
+            source_type: normalized.source_type,
+            original_url: normalized.original_url,
+            thumbnail_url: normalized.thumbnail_url,
+            validation_status: normalized.validation_status,
+            is_primary: i === 0,
+            sort_order: i,
+          };
+        });
+        await supabase.from('ad_media').insert(mediaRows);
+      }
+    } else {
+      await saveAsDraft();
+    }
+
+    if (currentAdId) {
+      await supabase.from('ads').update({ status: 'submitted' }).eq('id', currentAdId);
       await supabase.from('ad_status_history').insert({
-        ad_id: adId, previous_status: 'draft', new_status: 'submitted',
-        changed_by: user?.id, note: 'Submitted by client',
+        ad_id: currentAdId,
+        previous_status: 'draft',
+        new_status: 'submitted',
+        changed_by: user?.id,
+        note: 'Submitted by client',
       });
       await supabase.from('notifications').insert({
-        user_id: user?.id, title: 'Ad Submitted!',
-        message: `Your ad "${title}" has been submitted for review.`, type: 'success',
+        user_id: user?.id,
+        title: 'Ad Submitted!',
+        message: `Your ad "${title}" has been submitted for review.`,
+        type: 'success',
       });
       navigate('/dashboard/my-ads');
     }
+
     setSubmitting(false);
   };
 
@@ -275,7 +323,7 @@ export default function CreateAdPage() {
                   <div className="flex-1 relative">
                     <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
-                      type="url"
+                      type="text"
                       value={url}
                       onChange={e => {
                         const next = [...mediaUrls];

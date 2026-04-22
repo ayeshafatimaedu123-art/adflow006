@@ -22,8 +22,16 @@ export default function RegisterPage() {
     setLoading(true);
     const { error } = await signUp(email, password, name);
     if (error) {
-      setError(error);
-      setLoading(false);
+  if (
+    error.toLowerCase().includes('rate limit') ||
+    error.toLowerCase().includes('over_email_send_rate_limit') ||
+    error.toLowerCase().includes('email rate limit')
+  ) {
+    setError('Bahut zyada attempts ho gayi hain. 1 ghante baad dobara try karein ya alag email use karein.');
+  } else {
+    setError(error);
+  }
+  setLoading(false);
     } else {
       setSuccess(true);
       setTimeout(() => navigate('/dashboard'), 1500);
