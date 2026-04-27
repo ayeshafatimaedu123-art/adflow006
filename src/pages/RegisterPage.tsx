@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from '../lib/router';
 import { Eye, EyeOff, Zap, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import Layout from '../components/layout/Layout';
 
 export default function RegisterPage() {
@@ -33,8 +34,9 @@ export default function RegisterPage() {
   }
   setLoading(false);
     } else {
+      await supabase.auth.signOut(); // Force sign out so they have to log in manually
       setSuccess(true);
-      setTimeout(() => navigate('/dashboard'), 1500);
+      setTimeout(() => navigate('/login'), 1500);
     }
   };
 
@@ -58,7 +60,7 @@ export default function RegisterPage() {
               <div className="text-center py-6">
                 <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-3" />
                 <h2 className="text-lg font-semibold text-gray-900">Account created!</h2>
-                <p className="text-gray-500 text-sm mt-1">Redirecting to your dashboard...</p>
+                <p className="text-gray-500 text-sm mt-1">Redirecting to login page...</p>
               </div>
             ) : (
               <>

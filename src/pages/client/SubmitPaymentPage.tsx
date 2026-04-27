@@ -184,44 +184,96 @@ export default function SubmitPaymentPage() {
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="easypaisa">Easypaisa</option>
                   <option value="jazzcash">JazzCash</option>
+                  <option value="credit_card">Credit/Debit Card (Online)</option>
                   <option value="other">Other</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Transaction Reference / TID *</label>
-                <input
-                  type="text"
-                  value={txRef}
-                  onChange={e => setTxRef(e.target.value)}
-                  required
-                  placeholder="e.g., TXN-20260422-001"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
+              {method === 'credit_card' ? (
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Card Number *</label>
+                    <input
+                      type="text"
+                      maxLength={19}
+                      placeholder="XXXX XXXX XXXX XXXX"
+                      value={txRef}
+                      onChange={e => setTxRef(e.target.value)}
+                      required
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date *</label>
+                      <input
+                        type="text"
+                        placeholder="MM/YY"
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">CVC *</label>
+                      <input
+                        type="text"
+                        maxLength={4}
+                        placeholder="123"
+                        required
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Cardholder Name *</label>
+                    <input
+                      type="text"
+                      value={senderName}
+                      onChange={e => setSenderName(e.target.value)}
+                      required
+                      placeholder="Name on card"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Transaction Reference / TID *</label>
+                    <input
+                      type="text"
+                      value={txRef}
+                      onChange={e => setTxRef(e.target.value)}
+                      required
+                      placeholder="e.g., TXN-20260422-001"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Sender Name *</label>
-                <input
-                  type="text"
-                  value={senderName}
-                  onChange={e => setSenderName(e.target.value)}
-                  required
-                  placeholder="Name as it appears on receipt"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Sender Name *</label>
+                    <input
+                      type="text"
+                      value={senderName}
+                      onChange={e => setSenderName(e.target.value)}
+                      required
+                      placeholder="Name as it appears on receipt"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Screenshot URL (optional)</label>
-                <input
-                  type="text"
-                  value={screenshotUrl}
-                  onChange={e => setScreenshotUrl(e.target.value)}
-                  placeholder="https://imgur.com/screenshot.jpg"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Screenshot URL (optional)</label>
+                    <input
+                      type="text"
+                      value={screenshotUrl}
+                      onChange={e => setScreenshotUrl(e.target.value)}
+                      placeholder="https://imgur.com/screenshot.jpg"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>

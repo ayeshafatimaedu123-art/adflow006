@@ -12,12 +12,18 @@ import CitiesPage from './pages/CitiesPage';
 import CityPage from './pages/CityPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProfilePage from './pages/ProfilePage';
+import FAQPage from './pages/FAQPage';
+import ContactPage from './pages/ContactPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 import ClientDashboard from './pages/client/ClientDashboard';
 import CreateAdPage from './pages/client/CreateAdPage';
 import MyAdsPage from './pages/client/MyAdsPage';
 import SubmitPaymentPage from './pages/client/SubmitPaymentPage';
+import AdStatusHistoryPage from './pages/client/AdStatusHistoryPage';
 
 import ModeratorDashboard from './pages/moderator/ModeratorDashboard';
 
@@ -26,13 +32,16 @@ import PaymentQueuePage from './pages/admin/PaymentQueuePage';
 import AnalyticsPage from './pages/admin/AnalyticsPage';
 import SystemHealthPage from './pages/admin/SystemHealthPage';
 import UsersPage from './pages/admin/UsersPage';
+import AuditLogsPage from './pages/admin/AuditLogsPage';
 
 import PackageManagementPage from './pages/superadmin/PackageManagementPage';
+import CategoriesManagementPage from './pages/superadmin/CategoriesManagementPage';
+import CitiesManagementPage from './pages/superadmin/CitiesManagementPage';
 
 function RequireAuth({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { session, user, loading } = useAuth();
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
@@ -64,6 +73,11 @@ function AppRoutes() {
       <Route path="/cities/:slug" element={<CityPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/faq" element={<FAQPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
@@ -72,6 +86,7 @@ function AppRoutes() {
       <Route path="/dashboard/edit-ad/:id" element={<RequireAuth><CreateAdPage /></RequireAuth>} />
       <Route path="/dashboard/my-ads" element={<RequireAuth><MyAdsPage /></RequireAuth>} />
       <Route path="/dashboard/payment/:adId" element={<RequireAuth><SubmitPaymentPage /></RequireAuth>} />
+      <Route path="/dashboard/ad-history/:id" element={<RequireAuth><AdStatusHistoryPage /></RequireAuth>} />
 
       <Route
         path="/moderator"
@@ -98,10 +113,22 @@ function AppRoutes() {
         path="/admin/users"
         element={<RequireAuth roles={['admin', 'super_admin']}><UsersPage /></RequireAuth>}
       />
+      <Route
+        path="/admin/audit-logs"
+        element={<RequireAuth roles={['admin', 'super_admin']}><AuditLogsPage /></RequireAuth>}
+      />
 
       <Route
         path="/superadmin/packages"
         element={<RequireAuth roles={['super_admin']}><PackageManagementPage /></RequireAuth>}
+      />
+      <Route
+        path="/superadmin/categories"
+        element={<RequireAuth roles={['super_admin']}><CategoriesManagementPage /></RequireAuth>}
+      />
+      <Route
+        path="/superadmin/cities"
+        element={<RequireAuth roles={['super_admin']}><CitiesManagementPage /></RequireAuth>}
       />
 
       <Route path="*" element={<Navigate to="/" replace />} />

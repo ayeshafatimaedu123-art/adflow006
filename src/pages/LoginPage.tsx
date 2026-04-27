@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from '../lib/router';
 import { Eye, EyeOff, Zap, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import Layout from '../components/layout/Layout';
 
 export default function LoginPage() {
@@ -11,18 +12,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const { error } = await signIn(email, password);
+    
+    // Perform Supabase auth
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
     if (error) {
-      setError(error);
+      setError(error.message);
       setLoading(false);
-    } else {
-      navigate('/dashboard');
+    } else if (data.user) {
+      // Get role to navigate correctly
+      const { data: profile } = await supabase.from('users').select('role').eq('id', data.user.id).maybeSingle();
+      const rawRole = profile?.role || data.user.user_metadata?.role || 'client';
+      const userRole = rawRole.toLowerCase().trim();
+      
+      setSuccessMsg('Successfully signed in! Redirecting...');
+      
+      setTimeout(() => {
+        if (userRole === 'admin' || userRole === 'super_admin') navigate('/admin');
+        else if (userRole === 'moderator') navigate('/moderator');
+        else navigate('/dashboard');
+      }, 300);
     }
   };
 
@@ -46,6 +62,15 @@ export default function LoginPage() {
               <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg mb-5 text-sm">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
+              </div>
+            )}
+            
+            {successMsg && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg mb-5 text-sm border border-green-100">
+                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                </div>
+                {successMsg}
               </div>
             )}
 
@@ -104,9 +129,9 @@ export default function LoginPage() {
             <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
               <p className="text-xs font-semibold text-blue-700 mb-2">Demo Accounts (after seeding)</p>
               <div className="space-y-1 text-xs text-blue-600">
-                <p>Admin: admin@adflowpro.pk / admin123456</p>
-                <p>Moderator: mod@adflowpro.pk / mod123456</p>
-                <p>Client: client@adflowpro.pk / client123456</p>
+                <p>Admin: admin@test.com / password123</p>
+                <p>Moderator: mod@test.com / password123</p>
+                <p>Client: client@test.com / password123</p>
               </div>
             </div>
           </div>

@@ -11,11 +11,11 @@ import AdCard from '../components/common/AdCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Layout from '../components/layout/Layout';
 
-const STATS = [
-  { label: 'Active Listings', value: '12,400+', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
-  { label: 'Verified Sellers', value: '4,800+', icon: BadgeCheck, color: 'text-green-600', bg: 'bg-green-50' },
-  { label: 'Monthly Visitors', value: '120K+', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
-  { label: 'Cities Covered', value: '15+', icon: MapPin, color: 'text-red-500', bg: 'bg-red-50' },
+const STAT_ICONS = [
+  { label: 'Active Listings', key: 'activeAds', icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+  { label: 'Verified Sellers', key: 'verifiedSellers', icon: BadgeCheck, color: 'text-green-600', bg: 'bg-green-50' },
+  { label: 'Platform Views', key: 'visitors', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
+  { label: 'Cities Covered', key: 'cities', icon: MapPin, color: 'text-red-500', bg: 'bg-red-50' },
 ];
 
 const HOW_IT_WORKS = [
@@ -130,6 +130,7 @@ export default function HomePage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dynamicStats, setDynamicStats] = useState({ activeAds: 0, verifiedSellers: 0, visitors: 0, cities: 0 });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -144,6 +145,10 @@ export default function HomePage() {
         supabase.from('packages').select('*').eq('is_active', true).order('price'),
         supabase.from('categories').select('*').eq('is_active', true).order('sort_order').limit(8),
         supabase.from('learning_questions').select('*').eq('is_active', true).limit(50),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+        supabase.from('seller_profiles').select('*', { count: 'exact', head: true }).eq('is_verified', true),
+        supabase.from('ad_views').select('*', { count: 'exact', head: true }),
+        supabase.from('cities').select('*', { count: 'exact', head: true }).eq('is_active', true),
       ]);
 
       const all = adsRes.data ?? [];
@@ -151,6 +156,13 @@ export default function HomePage() {
       setRecentAds(all.slice(0, 8));
       setPackages(pkgRes.data ?? []);
       setCategories(catRes.data ?? []);
+      
+      setDynamicStats({
+        activeAds: countAds.count || 0,
+        verifiedSellers: countSellers.count || 0,
+        visitors: countViews.count || 0,
+        cities: countCities.count || 0,
+      });
 
       const qs = qRes.data ?? [];
       if (qs.length > 0) setQuestion(qs[Math.floor(Math.random() * qs.length)]);
@@ -253,12 +265,14 @@ export default function HomePage() {
       <section className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {STATS.map(stat => (
+            {STAT_ICONS.map(stat => (
               <div key={stat.label} className="text-center">
                 <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mx-auto mb-2`}>
                   <stat.icon className={`w-5 h-5 ${stat.color}`} />
                 </div>
-                <div className="text-2xl font-black text-gray-900">{stat.value}</div>
+                <div className="text-2xl font-black text-gray-900">
+                  <AnimatedCounter target={dynamicStats[stat.key as keyof typeof dynamicStats]} suffix="+" />
+                </div>
                 <div className="text-xs text-gray-500 font-medium mt-0.5">{stat.label}</div>
               </div>
             ))}

@@ -21,18 +21,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function fetchUser(userId: string) {
+  async function fetchUser(userId: string, currentSession?: Session | null) {
     const { data } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-    setUser(data);
+      
+    if (data) {
+      data.role = data.role ? data.role.toLowerCase().trim() : 'client';
+      setUser(data);
+    } else if (currentSession?.user) {
+      // Fallback if not in public.users table yet
+      setUser({
+        id: userId,
+        email: currentSession.user.email || '',
+        name: currentSession.user.user_metadata?.name || currentSession.user.email?.split('@')[0] || 'User',
+        role: currentSession.user.user_metadata?.role || 'client',
+        status: 'active',
+        created_at: new Date().toISOString()
+      });
+    } else {
+      setUser(null);
+    }
   }
 
   async function refreshUser() {
     if (session?.user?.id) {
-      await fetchUser(session.user.id);
+      await fetchUser(session.user.id, session);
     }
   }
 
@@ -40,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        fetchUser(session.user.id).finally(() => setLoading(false));
+        fetchUser(session.user.id, session).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -49,8 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user) {
+        setLoading(true);
         (async () => {
-          await fetchUser(session.user.id);
+          await fetchUser(session.user.id, session);
           setLoading(false);
         })();
       } else {
@@ -72,20 +89,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
     if (data.user) {
-      const { error: profileError } = await supabase.from('users').insert({
+      const { error: profileError } = await supabase.from('users').upsert({
         id: data.user.id,
         name,
         email,
         role: 'client',
         status: 'active',
-      });
-      if (profileError && profileError.code !== '23505') {
-        return { error: profileError.message };
+      }, { onConflict: 'id' });
+      
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
       }
-      await supabase.from('seller_profiles').insert({
+      
+      await supabase.from('seller_profiles').upsert({
         user_id: data.user.id,
         display_name: name,
-      });
+      }, { onConflict: 'user_id' });
     }
     return { error: null };
   }
